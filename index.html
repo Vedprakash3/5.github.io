@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload and Combine Photos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        #upload-container {
+            margin-bottom: 20px;
+        }
+        #combined-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #ccc;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        img {
+            max-width: 100%;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload and Combine Photos into Multi-Page PDF</h1>
+
+    <div id="upload-container">
+        <input type="file" id="fileInput" accept="image/*">
+        <button id="add-image">Add Image</button>
+    </div>
+
+    <div id="combined-container"></div>
+
+    <button id="generate-pdf" disabled>Download as PDF</button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const addImageButton = document.getElementById('add-image');
+        const combinedContainer = document.getElementById('combined-container');
+        const generatePdfButton = document.getElementById('generate-pdf');
+
+        const images = []; // Store all uploaded images
+
+        // Add image to the container and list
+        addImageButton.addEventListener('click', () => {
+            const file = fileInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    combinedContainer.appendChild(img);
+                    images.push(img); // Store image element
+                    checkImagesUploaded();
+                };
+                reader.readAsDataURL(file);
+            } else {
+                alert("Please select a file first.");
+            }
+        });
+
+        // Enable the PDF button if at least one image is uploaded
+        const checkImagesUploaded = () => {
+            generatePdfButton.disabled = images.length < 1;
+        };
+
+        // Generate Multi-Page PDF
+        generatePdfButton.addEventListener('click', async () => {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ compress: true }); // Initialize PDF with compression
+            const pageHeight = pdf.internal.pageSize.height;
+            const pageWidth = pdf.internal.pageSize.width;
+
+            let currentY = 10; // Initial Y position
+            let isFirstPage = true; // Check if it's the first page
+
+            for (let i = 0; i < images.length; i++) {
+                const img = images[i];
+                const canvas = await html2canvas(img);
+                const imgData = canvas.toDataURL('image/png');
+                const imgHeight = (canvas.height * (pageWidth - 20)) / canvas.width;
+
+                if (!isFirstPage && currentY + imgHeight > pageHeight - 10) {
+                    // Add a new page if content exceeds page height
+                    pdf.addPage();
+                    currentY = 10; // Reset Y position for the new page
+                }
+
+                // Add image to the PDF
+                pdf.addImage(imgData, 'PNG', 10, currentY, pageWidth - 20, imgHeight);
+                currentY += imgHeight + 10; // Update Y position for the next image
+                isFirstPage = false; // First page has been used
+            }
+
+            // Save the PDF
+            pdf.save('combined_photos.pdf');
+        });
+    </script>
+</body>
+</html>
