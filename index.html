@@ -33,9 +33,16 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            margin: 5px;
         }
         button:hover {
             background-color: #218838;
+        }
+        .remove-button {
+            background-color: #dc3545;
+        }
+        .remove-button:hover {
+            background-color: #c82333;
         }
     </style>
 </head>
@@ -45,6 +52,7 @@
     <div id="upload-container">
         <input type="file" id="fileInput" accept="image/*">
         <button id="add-image">Add Image</button>
+        <button id="remove-image" class="remove-button" disabled>Remove Last Image</button>
     </div>
 
     <div id="combined-container"></div>
@@ -56,6 +64,7 @@
     <script>
         const fileInput = document.getElementById('fileInput');
         const addImageButton = document.getElementById('add-image');
+        const removeImageButton = document.getElementById('remove-image');
         const combinedContainer = document.getElementById('combined-container');
         const generatePdfButton = document.getElementById('generate-pdf');
 
@@ -71,7 +80,7 @@
                     img.src = e.target.result;
                     combinedContainer.appendChild(img);
                     images.push(img); // Store image element
-                    checkImagesUploaded();
+                    updateButtonsState();
                 };
                 reader.readAsDataURL(file);
             } else {
@@ -79,37 +88,42 @@
             }
         });
 
-        // Enable the PDF button if at least one image is uploaded
-        const checkImagesUploaded = () => {
+        // Remove the last uploaded image
+        removeImageButton.addEventListener('click', () => {
+            if (images.length > 0) {
+                const lastImage = images.pop(); // Remove the last image from the array
+                combinedContainer.removeChild(lastImage); // Remove it from the DOM
+                updateButtonsState();
+            } else {
+                alert("No images to remove.");
+            }
+        });
+
+        // Enable or disable buttons based on the number of images uploaded
+        const updateButtonsState = () => {
             generatePdfButton.disabled = images.length < 1;
+            removeImageButton.disabled = images.length < 1;
         };
 
         // Generate Multi-Page PDF
         generatePdfButton.addEventListener('click', async () => {
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF({ compress: true }); // Initialize PDF with compression
-            const pageHeight = pdf.internal.pageSize.height;
-            const pageWidth = pdf.internal.pageSize.width;
-
-            let currentY = 10; // Initial Y position
-            let isFirstPage = true; // Check if it's the first page
+            const pageWidth = pdf.internal.pageSize.width; // PDF page width
+            const pageHeight = pdf.internal.pageSize.height; // PDF page height
 
             for (let i = 0; i < images.length; i++) {
                 const img = images[i];
                 const canvas = await html2canvas(img);
                 const imgData = canvas.toDataURL('image/png');
-                const imgHeight = (canvas.height * (pageWidth - 20)) / canvas.width;
 
-                if (!isFirstPage && currentY + imgHeight > pageHeight - 10) {
-                    // Add a new page if content exceeds page height
+                // Add image to the PDF, scaled to fit page size
+                pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight);
+
+                // Add a new page unless it's the last image
+                if (i < images.length - 1) {
                     pdf.addPage();
-                    currentY = 10; // Reset Y position for the new page
                 }
-
-                // Add image to the PDF
-                pdf.addImage(imgData, 'PNG', 10, currentY, pageWidth - 20, imgHeight);
-                currentY += imgHeight + 10; // Update Y position for the next image
-                isFirstPage = false; // First page has been used
             }
 
             // Save the PDF
