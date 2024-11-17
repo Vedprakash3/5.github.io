@@ -105,20 +105,36 @@
             removeImageButton.disabled = images.length < 1;
         };
 
-        // Generate Multi-Page PDF
+        // Generate Multi-Page PDF with Aspect Ratio Handling
         generatePdfButton.addEventListener('click', async () => {
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF({ compress: true }); // Initialize PDF with compression
-            const pageWidth = pdf.internal.pageSize.width; // PDF page width
-            const pageHeight = pdf.internal.pageSize.height; // PDF page height
+            const pageWidth = pdf.internal.pageSize.width;
+            const pageHeight = pdf.internal.pageSize.height;
 
             for (let i = 0; i < images.length; i++) {
                 const img = images[i];
                 const canvas = await html2canvas(img);
                 const imgData = canvas.toDataURL('image/png');
 
-                // Add image to the PDF, scaled to fit page size
-                pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight);
+                const imgWidth = canvas.width;
+                const imgHeight = canvas.height;
+
+                // Maintain aspect ratio
+                const aspectRatio = imgWidth / imgHeight;
+                let printWidth = pageWidth;
+                let printHeight = pageWidth / aspectRatio;
+
+                if (printHeight > pageHeight) {
+                    printHeight = pageHeight;
+                    printWidth = pageHeight * aspectRatio;
+                }
+
+                const x = (pageWidth - printWidth) / 2; // Center image horizontally
+                const y = (pageHeight - printHeight) / 2; // Center image vertically
+
+                // Add image to the PDF
+                pdf.addImage(imgData, 'PNG', x, y, printWidth, printHeight);
 
                 // Add a new page unless it's the last image
                 if (i < images.length - 1) {
